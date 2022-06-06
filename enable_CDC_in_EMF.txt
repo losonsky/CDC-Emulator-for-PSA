@@ -1,0 +1,26 @@
+# https://github.com/ludwig-v/arduino-psa-diag/tree/master/arduino-psa-diag-low-speed
+# enable EMF (display) to accept CDC messages
+#
+
+>765:665 ...OK
+10C0     ...50C0
+2180     ...61809645683880002C966464428033060F03024044628499
+
+before #######################
+>765:665 ...OK
+10C0     ...50C0
+21B3     ...61B31E02
+
+write ########################
+>765:665 ...OK
+10C0     ...50C0
+3BB33E02 ...7BB3
+
+verify #######################
+>765:665 ...OK
+10C0     ...50C0
+21B3     ...61B33E02
+
+
+
+
