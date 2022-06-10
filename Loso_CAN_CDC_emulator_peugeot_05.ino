@@ -144,11 +144,19 @@ void loop() {
     //Serial.println("Timer500 0x1A2 CDC track count");
 
     data[0] = cdc_track_num;
-    data[1] = cdc_track_length_minutes;
-    data[2] = cdc_track_length_seconds;
-    data[3] = cdc_track_playing_minutes;
-    data[4] = cdc_track_playing_seconds;
-    data[5] = 0x00;
+    if (tmp0_counter > 0) {
+      data[1] = cdc_track_length_minutes;
+      data[2] = cdc_track_length_seconds;
+      data[3] = cdc_track_playing_minutes;
+      data[4] = cdc_track_playing_seconds;
+      data[5] = 0x00;
+    } else {
+      data[1] = 0xFF;
+      data[2] = 0xFF;
+      data[3] = 0xFF;
+      data[4] = 0x7F;
+      data[5] = 0x80;
+    }
     data[6] = 0x00;
     CAN0.sendMsgBuf(0x1E2, 0, 7, data);
     //sprintf(MsgString, "Timer500 0x1E2 CDC current track %03d:%02d", cdc_track_playing_minutes, cdc_track_playing_seconds);
@@ -191,10 +199,11 @@ void loop() {
       data[7] = 0x00;
       CAN0.sendMsgBuf(0x2A5, 0, 8, data);
     */
-    if ( (old_tmp0_counter == 2) && (tmp0_counter == 3) && (sent0A4 == 0) ) {
-      sent0A4 = 1;
-      send0A4();
-    }
+    //if ( (old_tmp0_counter == 2) && (tmp0_counter == 3) && (sent0A4 == 0) ) {
+    //if (tmp1_counter % 2 == 0) {
+    //  sent0A4 = 1;
+    //  send0A4();
+    //}
   }
 
 
@@ -411,6 +420,7 @@ void loop() {
 #define CAN_TP_DELAY 4
 
 void send0A4() {
+  Serial.println("Sending CAN-TP 0x0A4");
   /*
       data[0] = 0x05; // CAN TP single frame 5 bytes
       data[1] = 0x43;
@@ -419,16 +429,15 @@ void send0A4() {
       data[4] = 0x00;
       CAN0.sendMsgBuf(CANTP_ADDR, 0, 5, data);
   */
-
-  Serial.println("Sending CAN-TP 0x0A4");
-  // 20 00 40 05
-  data[0] = 0x04; // CAN TP single frame 5 bytes
-  data[1] = 0x20;
-  data[2] = 0x00;
-  data[3] = 0x40;
-  data[4] = cdc_track_num + 1;
-  CAN0.sendMsgBuf(CANTP_ADDR, 0, 5, data);
-
+  /*
+    // 20 00 40 05
+    data[0] = 0x04; // CAN TP single frame 5 bytes
+    data[1] = 0x20;
+    data[2] = 0x00;
+    data[3] = 0x40;
+    data[4] = cdc_track_num + 1;
+    CAN0.sendMsgBuf(CANTP_ADDR, 0, 5, data);
+  */
   // 20 00 98 01 54 68 65 20 43 72 61 6e 62 65 72 72 69 65 73 00 00 00 00 00 41 6e 69 6d 61 6c 20 49 6e 73 74 69 6e 63 74 00 00 00 00 00
   // 20 00 98 01 54 68 65 20 43 72
   // 61 6e 62 65 72 72 69 65 73 00
@@ -441,10 +450,10 @@ void send0A4() {
   // 20 00 98 01 54 68
   data[0] = 0x10; // header CAN TP First frame 6 bytes
   data[1] = 44; // header # bytes in payload = 6 + 7 + 7 + 7 + 7 + 7 + 3
-  data[2] = 0x20;//20 + (tmp1_counter % 16)); // 0x20 CD, 0x10 RDS
-  data[3] = (tmp1_counter % 16);
-  data[4] = 0x58; // message contains author, etc....
-  data[5] = cdc_track_num;//0x01;
+  data[2] = 0x20; //(16 * (tmp1_counter % 8));// + (tmp1_counter % 16); // 0x20 CD, 0x10 RDS
+  data[3] = 0x00;
+  data[4] = 0xFF;//0x58 + (16 * (tmp1_counter % 16)) + (tmp1_counter % 16);//0x58; //tmp1_counter; //0xFF;//0x58; // message contains author, etc....
+  data[5] = 0x80; //cdc_track_num;//0x01;
   data[6] = 0x54;
   data[7] = 0x68;
   CAN0.sendMsgBuf(CANTP_ADDR, 0, 8, data);
