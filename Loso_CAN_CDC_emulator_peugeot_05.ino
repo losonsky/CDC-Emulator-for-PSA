@@ -6,7 +6,6 @@
 
 #define SKIP_0E6_COUNT 10
 #define SKIP_0F6_COUNT  2
-#define CANTP_ADDR 0x0A4
 
 #include <mcp_can.h>
 
@@ -22,23 +21,26 @@ MCP_CAN CAN0(CAN0_CS);
 uint8_t data[] = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07};
 
 void setup() {
-  //Serial.begin(230400); // be a bit faster than CAN 125kbps...
-  Serial.begin(115200); // be a bit faster than CAN 125kbps...
+  Serial.begin(230400); // be a bit faster than CAN 125kbps...
+  //Serial.begin(115200);
   while (!Serial) {
     // Leonardo
   }
-  delay(2000);
+  delay(500);
   Serial.println("Loso_CAN_CDC_emulator_peugeot_05");
   pinMode(CAN0_INT, INPUT);
   if (CAN0.begin(MCP_STDEXT, CAN_125KBPS, MCP_8MHZ) != CAN_OK) {
     Serial.println("Error Initializing MCP2515...");
   }
-  CAN0.init_Mask(0, 0, 0x7FF0000);
-  CAN0.init_Mask(1, 0, 0x7FF0000);
-  CAN0.init_Filt(0, 0, 0x21F0000); // RC under seering wheel
-  CAN0.init_Filt(1, 0, 0x1310000); // CDC command
-  CAN0.init_Filt(2, 0, 0x0E60000); // Voltage
-  CAN0.init_Filt(3, 0, 0x0F60000); // Temperature
+  /*
+    CAN0.init_Mask(0, 0, 0x7FF0000);
+    CAN0.init_Mask(1, 0, 0x7FF0000);
+    CAN0.init_Filt(0, 0, 0x21F0000); // RC under seering wheel
+    CAN0.init_Filt(1, 0, 0x1310000); // CDC command
+    CAN0.init_Filt(2, 0, 0x0E60000); // Voltage
+    CAN0.init_Filt(3, 0, 0x0F60000); // Temperature
+    CAN0.init_Filt(4, 0, 0x1220000); // Radio buttons
+  */
   CAN0.setMode(MCP_NORMAL);
   Serial.println("Setup done.");
 }
@@ -61,7 +63,7 @@ uint32_t Timer1000_every_ms = 1000; // 531, 0E2, time ticking seconds
 uint32_t next_Timer1000_check = 3100;
 
 
-uint8_t cdc_num_disks = 1;
+uint8_t cdc_num_disks = 6;
 
 uint8_t cdc_disk_num = 1;
 
@@ -86,9 +88,9 @@ uint8_t tmp0_counter = 0;
 uint8_t old_tmp0_counter = tmp0_counter;
 uint8_t tmp1_counter = 0;
 uint8_t tmp2_counter = 0;
+uint8_t tmp3_counter = 0;
 
-//uint8_t sent125 = 0;
-uint8_t sent0A4 = 0;
+
 
 
 void loop() {
@@ -102,19 +104,19 @@ void loop() {
         data[1] = 0b10000000; // wait
         break;
       case 1:
-        data[1] = 0b00000001; // stop
-        //data[1] = 0b00000011; // play
+        //data[1] = 0b00000001; // stop
+        data[1] = 0b00000011; // play
         break;
       case 2:
-        data[1] = 0b00000010; // pause
-        //data[1] = 0b00000011; // play
+        //data[1] = 0b00000010; // pause
+        data[1] = 0b00000011; // play
         break;
       case 3:
         data[1] = 0b00000011; // play
         break;
       case 4:
-        data[1] = 0b00000111; // playplay
-        //data[1] = 0b00000011; // play
+        //data[1] = 0b00000111; // playplay
+        data[1] = 0b00000011; // play
         break;
     }
     data[2] = 0x06;
@@ -189,21 +191,17 @@ void loop() {
     */
 
     /*
-      data[0] = 0x4C; // ASCII RDS
-      data[1] = 0x6F;
-      data[2] = 0x73;
-      data[3] = 0x6F;
-      data[4] = 0x43;
-      data[5] = 0x44;
-      data[6] = 0x43;
-      data[7] = 0x00;
-      CAN0.sendMsgBuf(0x2A5, 0, 8, data);
+        data[0] = 0x4C; // ASCII RDS
+        data[1] = 0x6F;
+        data[2] = 0x73;
+        data[3] = 0x6F;
+        data[4] = 0x43;
+        data[5] = 0x44;
+        data[6] = 0x43;
+        data[7] = 0x00;
+        CAN0.sendMsgBuf(0x200 + tmp3_counter, 0, 8, data);
     */
-    //if ( (old_tmp0_counter == 2) && (tmp0_counter == 3) && (sent0A4 == 0) ) {
-    //if (tmp1_counter % 2 == 0) {
-    //  sent0A4 = 1;
-    //  send0A4();
-    //}
+
   }
 
 
@@ -244,12 +242,12 @@ void loop() {
       }
     }
 
-    Serial.println();
     //Serial.println();
-    Serial.print("tmp0_counter = ");
-    Serial.println(tmp0_counter);
-    Serial.print("tmp1_counter = ");
-    Serial.println(tmp1_counter);
+    //Serial.println();
+    //Serial.print("tmp0_counter = ");
+    //Serial.println(tmp0_counter);
+    //Serial.print("tmp1_counter = ");
+    //Serial.println(tmp1_counter);
 
     tmp2_counter ++;
     if (tmp2_counter % 2 == 0) {
@@ -261,6 +259,41 @@ void loop() {
         tmp0_counter ++;
       }
     }
+
+    if ( (old_tmp0_counter == 0) && (tmp0_counter == 1) ) {
+      Serial.println("Sending CAN-TP to 0x125 Single frame");
+      data[0] = 0x01; // CAN TP Single frame
+      data[1] = 0x00;
+      CAN0.sendMsgBuf(0x125, 0, 2, data);
+      delay(10);
+
+      data[0] = 0x4C; // ASCII
+      data[1] = 0x6F;
+      data[2] = 0x73;
+      data[3] = 0x6F;
+      data[4] = 0x43;
+      data[5] = 0x44;
+      data[6] = 0x43;
+      data[7] = 0x00;
+      CAN0.sendMsgBuf(0x2A2, 0, 8, data);
+      delay(10);
+
+      data[0] = 0x4C; // ASCII
+      data[1] = 0x6F;
+      data[2] = 0x73;
+      data[3] = 0x6F;
+      data[4] = 0x43;
+      data[5] = 0x44;
+      data[6] = 0x43;
+      data[7] = 0x00;
+      CAN0.sendMsgBuf(0x271, 0, 8, data);
+      delay(10);
+
+      send0A4();
+
+    }
+
+
 
   }
 
@@ -277,7 +310,7 @@ void loop() {
           float voltage = 0.05 * ((uint16_t)rxBuf[5] + 144);
           dtostrf(voltage, 5, 2, str_tmp);
           sprintf(MsgString, "%s, BatV = %s", MsgString, str_tmp);
-          Serial.println(MsgString);
+          //Serial.println(MsgString);
         }
         break;
 
@@ -317,7 +350,7 @@ void loop() {
           dtostrf(temperature, 5, 1, str_tmp);
           sprintf(MsgString, "%s, Temp = %s", MsgString, str_tmp);
 
-          Serial.println(MsgString);
+          //Serial.println(MsgString);
           /*
             for (byte i = 0; i < len; i ++) {
             Serial.print(", ");
@@ -343,7 +376,6 @@ void loop() {
           sprintf(MsgString, "%s, CDC cmd play", MsgString);
           Serial.println(MsgString);
           tmp0_counter = 0;
-          sent0A4 = 0;
           cdc_track_playing_minutes = 0;
           cdc_track_playing_seconds = 0;
         }
@@ -351,6 +383,50 @@ void loop() {
           sprintf(MsgString, "%s, CDC cmd stop", MsgString);
           Serial.println(MsgString);
         }
+
+        if ( (rxBuf[4] != 0) && (cdc_track_num != rxBuf[4]) ) { // track change
+          if (cdc_track_num < rxBuf[4]) {
+            if (tmp3_counter < 255) {
+              tmp3_counter = tmp3_counter + 1;
+              Serial.print("inc track tmp3_counter = 0x");
+              Serial.println(tmp3_counter, HEX);
+            }
+          } else {
+            if (tmp3_counter >   0) {
+              tmp3_counter = tmp3_counter - 1;
+              Serial.print("dec track tmp3_counter = 0x");
+              Serial.println(tmp3_counter, HEX);
+            }
+          }
+          cdc_track_playing_minutes = 0;
+          cdc_track_playing_seconds = 0;
+          cdc_track_num = rxBuf[4];
+          tmp0_counter = 0;
+          tmp1_counter = 0;
+        }
+
+        if ( (rxBuf[2] != 0) && (cdc_disk_num != rxBuf[2]) ) { // disk change
+          if (cdc_disk_num < rxBuf[2]) {
+            if (tmp3_counter < 240) {
+              tmp3_counter = tmp3_counter + 16;
+              Serial.print("inc disk tmp3_counter = 0x");
+              Serial.println(tmp3_counter, HEX);
+            }
+          } else {
+            if (tmp3_counter >  15) {
+              tmp3_counter = tmp3_counter - 16;
+              Serial.print("dec disk tmp3_counter = 0x");
+              Serial.println(tmp3_counter, HEX);
+            }
+          }
+          cdc_disk_num = rxBuf[2];
+          cdc_track_num = 1;
+          tmp0_counter = 0;
+          tmp1_counter = 0;
+          cdc_track_playing_minutes = 0;
+          cdc_track_playing_seconds = 0;
+        }
+
         break;
 
       case 0x21F:
@@ -360,7 +436,6 @@ void loop() {
             if (tmp0_counter > 0) { // debounce
               tmp0_counter = 0;
               tmp1_counter = 0;
-              sent0A4 = 0;
               if (cdc_track_num >= cdc_disk_num_tracks) {
                 cdc_track_num = 1;
               } else {
@@ -375,7 +450,6 @@ void loop() {
             if (tmp0_counter > 0) { // debounce
               tmp0_counter = 0;
               tmp1_counter = 0;
-              sent0A4 = 0;
               if (cdc_track_num <= 1) {
                 cdc_track_num = cdc_disk_num_tracks;
               } else {
@@ -402,130 +476,197 @@ void loop() {
           Serial.println(MsgString);
         }
         break;
-      default:
-        Serial.print(MsgString);
-        for (byte i = 0; i < len; i ++) {
-          Serial.print(", ");
-          printBinary(rxBuf[i]);
-          sprintf(MsgString, " %.2X", rxBuf[i]);
-          Serial.print(MsgString);
+
+      case 0x122:
+        Serial.println("Radio button pressed");
+        if ( (rxBuf[1] & 0b00000001) || (rxBuf[2] & 0b10000000) ) {
+          if (rxBuf[2] & 0b10000000) {
+            sprintf(MsgString, "%s, Forward", MsgString);
+            if (tmp0_counter > 0) { // debounce
+              tmp0_counter = 0;
+              tmp1_counter = 0;
+              if (cdc_track_num >= cdc_disk_num_tracks) {
+                cdc_track_num = 1;
+              } else {
+                cdc_track_num ++;
+              }
+              cdc_track_playing_minutes = 0;
+              cdc_track_playing_seconds = 0;
+            }
+          }
+          if (rxBuf[1] & 0b00000001) {
+            sprintf(MsgString, "%s, Backward", MsgString);
+            if (tmp0_counter > 0) { // debounce
+              tmp0_counter = 0;
+              tmp1_counter = 0;
+              if (cdc_track_num <= 1) {
+                cdc_track_num = cdc_disk_num_tracks;
+              } else {
+                cdc_track_num --;
+              }
+              cdc_track_playing_minutes = 0;
+              cdc_track_playing_seconds = 0;
+            }
+          }
         }
-        Serial.println();
+        break;
+      /*
+        case 0x09F:
+        case 0x19F:
+        case 0x29F:
+        case 0x39F:
+      */
+      case 0x325:
+      case 0x0DF:
+        break;
+      default:
+        if ( (len == 3) || (rxId == 0x0A4) ) {
+          Serial.println("########## flow control frame ##########");
+          Serial.print(MsgString);
+          for (byte i = 0; i < len; i ++) {
+            Serial.print(", ");
+            //printBinary(rxBuf[i]);
+            sprintf(MsgString, "%.2X", rxBuf[i]);
+            Serial.print(MsgString);
+          }
+          Serial.println();
+        }
         break;
     }
   }
   delay(1);
 }
-
-#define CAN_TP_DELAY 4
+// 0x0A4
+// 0x123
+// 0x125
+// 0x163
+//#define CANTP_ADDR   0x1A4
+#define CAN_TP_DELAY    5
+int CANTP_ADDR;
+int CANTP_ADDR2 = 0x125;
 
 void send0A4() {
-  Serial.println("Sending CAN-TP 0x0A4");
-  /*
-      data[0] = 0x05; // CAN TP single frame 5 bytes
-      data[1] = 0x43;
-      data[2] = 0x44;
-      data[3] = 0x45;
-      data[4] = 0x00;
-      CAN0.sendMsgBuf(CANTP_ADDR, 0, 5, data);
-  */
-  /*
-    // 20 00 40 05
-    data[0] = 0x04; // CAN TP single frame 5 bytes
-    data[1] = 0x20;
-    data[2] = 0x00;
-    data[3] = 0x40;
-    data[4] = cdc_track_num + 1;
-    CAN0.sendMsgBuf(CANTP_ADDR, 0, 5, data);
-  */
-  // 20 00 98 01 54 68 65 20 43 72 61 6e 62 65 72 72 69 65 73 00 00 00 00 00 41 6e 69 6d 61 6c 20 49 6e 73 74 69 6e 63 74 00 00 00 00 00
-  // 20 00 98 01 54 68 65 20 43 72
-  // 61 6e 62 65 72 72 69 65 73 00
-  // 00 00 00 00 41 6e 69 6d 61 6c
-  // 20 49 6e 73 74 69 6e 63 74 00
-  // 00 00 00 00
-#ifdef CANTP_ADDR
-  RXLED1;
+  CANTP_ADDR = 0x0A4;//0x29B + tmp3_counter;
+  switch (CANTP_ADDR) {
+    case 0x162:
+    case 0x036:
+    case 0x0F6:
+    case 0x21F:
+    case 0x265:
+    case 0x3E5:
 
-  // 20 00 98 01 54 68
-  data[0] = 0x10; // header CAN TP First frame 6 bytes
-  data[1] = 44; // header # bytes in payload = 6 + 7 + 7 + 7 + 7 + 7 + 3
-  data[2] = 0x20; //(16 * (tmp1_counter % 8));// + (tmp1_counter % 16); // 0x20 CD, 0x10 RDS
-  data[3] = 0x00;
-  data[4] = 0xFF;//0x58 + (16 * (tmp1_counter % 16)) + (tmp1_counter % 16);//0x58; //tmp1_counter; //0xFF;//0x58; // message contains author, etc....
-  data[5] = 0x80; //cdc_track_num;//0x01;
-  data[6] = 0x54;
-  data[7] = 0x68;
-  CAN0.sendMsgBuf(CANTP_ADDR, 0, 8, data);
-  delay(CAN_TP_DELAY);
-  // 65 20 43 72 61 6e 62
-  data[0] = 0x21; // CAN TP Consecutive frame 7 bytes
-  data[1] = 0x65;
-  data[2] = 0x20;
-  data[3] = 0x43;
-  data[4] = 0x72;
-  data[5] = 0x61;
-  data[6] = 0x6e;
-  data[7] = 0x62;
-  CAN0.sendMsgBuf(CANTP_ADDR, 0, 8, data);
-  delay(CAN_TP_DELAY);
-  // 65 72 72 69 65 73 00
-  data[0] = 0x22; // CAN TP Consecutive frame 7 bytes
-  data[1] = 0x65;
-  data[2] = 0x72;
-  data[3] = 0x72;
-  data[4] = 0x69;
-  data[5] = 0x65;
-  data[6] = 0x73;
-  data[7] = 0x00;
-  CAN0.sendMsgBuf(CANTP_ADDR, 0, 8, data);
-  delay(CAN_TP_DELAY);
-  // 00 00 00 00 41 6e 69
-  data[0] = 0x23; // CAN TP Consecutive frame 7 bytes
-  data[1] = 0x00;
-  data[2] = 0x00;
-  data[3] = 0x00;
-  data[4] = 0x00;
-  data[5] = 0x41;
-  data[6] = 0x6e;
-  data[7] = 0x69;
-  CAN0.sendMsgBuf(CANTP_ADDR, 0, 8, data);
-  delay(CAN_TP_DELAY);
-  // 6d 61 6c 20 49 6e 73
-  data[0] = 0x24; // CAN TP Consecutive frame 7 bytes
-  data[1] = 0x6d;
-  data[2] = 0x61;
-  data[3] = 0x6c;
-  data[4] = 0x20;
-  data[5] = 0x49;
-  data[6] = 0x6e;
-  data[7] = 0x73;
-  CAN0.sendMsgBuf(CANTP_ADDR, 0, 8, data);
-  delay(CAN_TP_DELAY);
-  // 74 69 6e 63 74 00 00
-  data[0] = 0x25; // CAN TP Consecutive frame 7 bytes
-  data[1] = 0x74;
-  data[2] = 0x69;
-  data[3] = 0x6e;
-  data[4] = 0x63;
-  data[5] = 0x74;
-  data[6] = 0x00;
-  data[7] = 0x00;
-  CAN0.sendMsgBuf(CANTP_ADDR, 0, 8, data);
-  delay(CAN_TP_DELAY);
-  // 00 00 00
-  data[0] = 0x26; // CAN TP Consecutive frame 7 bytes
-  data[1] = 0x00;
-  data[2] = 0x00;
-  data[3] = 0x00;
-  CAN0.sendMsgBuf(CANTP_ADDR, 0, 4, data);
-  delay(CAN_TP_DELAY);
-  RXLED0;
-#endif // CANTP_ADDR
+      break;
+    default:
+      Serial.print("Sending CAN-TP to 0x0");
+      Serial.print(CANTP_ADDR, HEX);
+      Serial.println(" Multiple frames");
+      /*
+          data[0] = 0x05; // CAN TP single frame 5 bytes
+          data[1] = 0x43;
+          data[2] = 0x44;
+          data[3] = 0x45;
+          data[4] = 0x00;
+          CAN0.sendMsgBuf(CANTP_ADDR, 0, 5, data);
+      */
+      /*
+        // 20 00 40 05
+        data[0] = 0x04; // CAN TP single frame 5 bytes
+        data[1] = 0x20;
+        data[2] = 0x00;
+        data[3] = 0x40;
+        data[4] = cdc_track_num + 1;
+        CAN0.sendMsgBuf(CANTP_ADDR, 0, 5, data);
+      */
+      // 20 00 98 01 54 68 65 20 43 72 61 6e 62 65 72 72 69 65 73 00 00 00 00 00 41 6e 69 6d 61 6c 20 49 6e 73 74 69 6e 63 74 00 00 00 00 00
+      // 20 00 98 01 54 68 65 20 43 72
+      // 61 6e 62 65 72 72 69 65 73 00
+      // 00 00 00 00 41 6e 69 6d 61 6c
+      // 20 49 6e 73 74 69 6e 63 74 00
+      // 00 00 00 00
+      RXLED1;
+
+      // 20 00 98 01 54 68
+      data[0] = 0x10; // header CAN TP First frame 6 bytes
+      data[1] = 44; // header # bytes in payload
+      data[2] = tmp3_counter;// 0x20 CD, 0x10 RDS
+      data[3] = 0x00;
+      data[4] = 0x58;
+      data[5] = cdc_track_num;
+      data[6] = 0x54;
+      data[7] = 0x68;
+      CAN0.sendMsgBuf(CANTP_ADDR, 0, 8, data);
+      delay(CAN_TP_DELAY);
+      // 65 20 43 72 61 6e 62
+      data[0] = 0x21; // CAN TP Consecutive frame 7 bytes
+      data[1] = 0x65;
+      data[2] = 0x20;
+      data[3] = 0x43;
+      data[4] = 0x72;
+      data[5] = 0x61;
+      data[6] = 0x6e;
+      data[7] = 0x62;
+      CAN0.sendMsgBuf(CANTP_ADDR, 0, 8, data);
+      delay(CAN_TP_DELAY);
+      // 65 72 72 69 65 73 00
+      data[0] = 0x22; // CAN TP Consecutive frame 7 bytes
+      data[1] = 0x65;
+      data[2] = 0x72;
+      data[3] = 0x72;
+      data[4] = 0x69;
+      data[5] = 0x65;
+      data[6] = 0x73;
+      data[7] = 0x00;
+      CAN0.sendMsgBuf(CANTP_ADDR, 0, 8, data);
+      delay(CAN_TP_DELAY);
+      // 00 00 00 00 41 6e 69
+      data[0] = 0x23; // CAN TP Consecutive frame 7 bytes
+      data[1] = 0x00;
+      data[2] = 0x00;
+      data[3] = 0x00;
+      data[4] = 0x00;
+      data[5] = 0x41;
+      data[6] = 0x6e;
+      data[7] = 0x69;
+      CAN0.sendMsgBuf(CANTP_ADDR, 0, 8, data);
+      delay(CAN_TP_DELAY);
+      // 6d 61 6c 20 49 6e 73
+      data[0] = 0x24; // CAN TP Consecutive frame 7 bytes
+      data[1] = 0x6d;
+      data[2] = 0x61;
+      data[3] = 0x6c;
+      data[4] = 0x20;
+      data[5] = 0x49;
+      data[6] = 0x6e;
+      data[7] = 0x73;
+      CAN0.sendMsgBuf(CANTP_ADDR, 0, 8, data);
+      delay(CAN_TP_DELAY);
+      // 74 69 6e 63 74 00 00
+      data[0] = 0x25; // CAN TP Consecutive frame 7 bytes
+      data[1] = 0x74;
+      data[2] = 0x69;
+      data[3] = 0x6e;
+      data[4] = 0x63;
+      data[5] = 0x74;
+      data[6] = 0x00;
+      data[7] = 0x00;
+      CAN0.sendMsgBuf(CANTP_ADDR, 0, 8, data);
+      delay(CAN_TP_DELAY);
+      // 00 00 00
+      data[0] = 0x26; // CAN TP Consecutive frame 7 bytes
+      data[1] = 0x00;
+      data[2] = 0x00;
+      data[3] = 0x00;
+      CAN0.sendMsgBuf(CANTP_ADDR, 0, 4, data);
+      delay(CAN_TP_DELAY);
+      RXLED0;
+  }
 }
 
 void send125(void) {
-  Serial.println("Sending CAN-TP 0x125");
+  Serial.println("Sending CAN-TP CANTP_ADDR2");
+  data[0] = 0x01; // CAN TP Single frame
+  data[1] = 0x00;
+  CAN0.sendMsgBuf(CANTP_ADDR2, 0, 2, data);
   /*
     43.024 125 7, 06, 70, FF, 00, 00, 00, 00
     43.235 125 8, 10, A6, 70, 06, 00, 40, FF, 00
@@ -555,6 +696,7 @@ void send125(void) {
     46.800 125 7, 06, 00, 00, 00, 00, 00, 00
     46.826 125 7, 06, 00, 00, 00, 00, 00, 00
   */
+
   //    43.024 125 7, 06, 70, FF, 00, 00, 00, 00
   data[0] = 0x06;
   data[1] = 0x70;
@@ -563,8 +705,9 @@ void send125(void) {
   data[4] = 0x00;
   data[5] = 0x00;
   data[6] = 0x00;
-  CAN0.sendMsgBuf(0x125, 0, 7, data);
+  CAN0.sendMsgBuf(CANTP_ADDR2, 0, 7, data);
   delay(CAN_TP_DELAY);
+
   //    43.235 125 8, 10, A6, 70, 06, 00, 40, FF, 00
   data[0] = 0x10;
   data[1] = 0xA6;
@@ -574,7 +717,7 @@ void send125(void) {
   data[5] = 0x40;
   data[6] = 0xFF;
   data[7] = 0x00;
-  CAN0.sendMsgBuf(0x125, 0, 8, data);
+  CAN0.sendMsgBuf(CANTP_ADDR2, 0, 8, data);
   delay(CAN_TP_DELAY);
   //    43.247 125 8, 21, 45, 76, 61, 20, 4B, 6F, 73
   data[0] = 0x21;
@@ -585,7 +728,7 @@ void send125(void) {
   data[5] = 0x4B;
   data[6] = 0x6F;
   data[7] = 0x73;
-  CAN0.sendMsgBuf(0x125, 0, 8, data);
+  CAN0.sendMsgBuf(CANTP_ADDR2, 0, 8, data);
   delay(CAN_TP_DELAY);
   //    43.257 125 8, 22, 74, 6F, 6C, 61, 6E, 79, 69
   data[0] = 0x22;
@@ -596,7 +739,7 @@ void send125(void) {
   data[5] = 0x6E;
   data[6] = 0x79;
   data[7] = 0x69;
-  CAN0.sendMsgBuf(0x125, 0, 8, data);
+  CAN0.sendMsgBuf(CANTP_ADDR2, 0, 8, data);
   delay(CAN_TP_DELAY);
   //    43.269 125 8, 23, 6F, 76, 61, 00, 00, 00, 41
   data[0] = 0x23;
@@ -607,7 +750,7 @@ void send125(void) {
   data[5] = 0x00;
   data[6] = 0x00;
   data[7] = 0x41;
-  CAN0.sendMsgBuf(0x125, 0, 8, data);
+  CAN0.sendMsgBuf(CANTP_ADDR2, 0, 8, data);
   delay(CAN_TP_DELAY);
   //    43.280 125 8, 24, 7A, 20, 62, 75, 64, 65, 20
   data[0] = 0x24;
@@ -618,7 +761,7 @@ void send125(void) {
   data[5] = 0x64;
   data[6] = 0x65;
   data[7] = 0x20;
-  CAN0.sendMsgBuf(0x125, 0, 8, data);
+  CAN0.sendMsgBuf(CANTP_ADDR2, 0, 8, data);
   delay(CAN_TP_DELAY);
   //    43.292 125 8, 25, 70, 6F, 6B, 6F, 73, 65, 6E
   data[0] = 0x25;
@@ -629,7 +772,7 @@ void send125(void) {
   data[5] = 0x73;
   data[6] = 0x65;
   data[7] = 0x6E;
-  CAN0.sendMsgBuf(0x125, 0, 8, data);
+  CAN0.sendMsgBuf(CANTP_ADDR2, 0, 8, data);
   delay(CAN_TP_DELAY);
   //    43.302 125 8, 26, 61, 20, 74, 72, 61, 50, 65
   data[0] = 0x26;
@@ -640,7 +783,7 @@ void send125(void) {
   data[5] = 0x61;
   data[6] = 0x50;
   data[7] = 0x65;
-  CAN0.sendMsgBuf(0x125, 0, 8, data);
+  CAN0.sendMsgBuf(CANTP_ADDR2, 0, 8, data);
   delay(CAN_TP_DELAY);
   //    43.314 125 8, 27, 74, 65, 72, 20, 56, 61, 73
   data[0] = 0x27;
@@ -651,7 +794,7 @@ void send125(void) {
   data[5] = 0x56;
   data[6] = 0x61;
   data[7] = 0x73;
-  CAN0.sendMsgBuf(0x125, 0, 8, data);
+  CAN0.sendMsgBuf(CANTP_ADDR2, 0, 8, data);
   delay(CAN_TP_DELAY);
   //    43.325 125 8, 28, 65, 6B, 2C, 20, 44, 75, 73
   data[0] = 0x28;
@@ -662,7 +805,7 @@ void send125(void) {
   data[5] = 0x44;
   data[6] = 0x75;
   data[7] = 0x73;
-  CAN0.sendMsgBuf(0x125, 0, 8, data);
+  CAN0.sendMsgBuf(CANTP_ADDR2, 0, 8, data);
   delay(CAN_TP_DELAY);
   //    43.336 125 8, 29, 61, 6E, 20, 52, 4F, 74, 76
   data[0] = 0x29;
@@ -673,7 +816,7 @@ void send125(void) {
   data[5] = 0x4F;
   data[6] = 0x74;
   data[7] = 0x76;
-  CAN0.sendMsgBuf(0x125, 0, 8, data);
+  CAN0.sendMsgBuf(CANTP_ADDR2, 0, 8, data);
   delay(CAN_TP_DELAY);
   //    43.346 125 8, 2A, 61, 72, 61, 6A, 74, 65, 20
   data[0] = 0x2A;
@@ -684,7 +827,7 @@ void send125(void) {
   data[5] = 0x74;
   data[6] = 0x65;
   data[7] = 0x20;
-  CAN0.sendMsgBuf(0x125, 0, 8, data);
+  CAN0.sendMsgBuf(CANTP_ADDR2, 0, 8, data);
   delay(CAN_TP_DELAY);
   //    43.358 125 8, 2B, 6B, 61, 73, 69, 6E, 6F, 00
   data[0] = 0x2B;
@@ -695,7 +838,7 @@ void send125(void) {
   data[5] = 0x6E;
   data[6] = 0x6F;
   data[7] = 0x00;
-  CAN0.sendMsgBuf(0x125, 0, 8, data);
+  CAN0.sendMsgBuf(CANTP_ADDR2, 0, 8, data);
   delay(CAN_TP_DELAY);
   //    43.370 125 8, 2C, 00, 00, 00, 4D, 61, 72, 63
   data[0] = 0x2C;
@@ -706,7 +849,7 @@ void send125(void) {
   data[5] = 0x61;
   data[6] = 0x72;
   data[7] = 0x63;
-  CAN0.sendMsgBuf(0x125, 0, 8, data);
+  CAN0.sendMsgBuf(CANTP_ADDR2, 0, 8, data);
   delay(CAN_TP_DELAY);
   //    43.380 125 8, 2D, 65, 6C, 61, 20, 4C, 61, 69
   data[0] = 0x2D;
@@ -717,7 +860,7 @@ void send125(void) {
   data[5] = 0x4C;
   data[6] = 0x61;
   data[7] = 0x69;
-  CAN0.sendMsgBuf(0x125, 0, 8, data);
+  CAN0.sendMsgBuf(CANTP_ADDR2, 0, 8, data);
   delay(CAN_TP_DELAY);
   //    43.390 125 8, 2E, 66, 65, 72, 6F, 76, 61, 00
   data[0] = 0x2E;
@@ -728,7 +871,7 @@ void send125(void) {
   data[5] = 0x76;
   data[6] = 0x61;
   data[7] = 0x00;
-  CAN0.sendMsgBuf(0x125, 0, 8, data);
+  CAN0.sendMsgBuf(CANTP_ADDR2, 0, 8, data);
   delay(CAN_TP_DELAY);
   //    43.402 125 8, 2F, 00, 00, 50, 6F, 64, 20, 62
   data[0] = 0x2F;
@@ -739,7 +882,7 @@ void send125(void) {
   data[5] = 0x64;
   data[6] = 0x20;
   data[7] = 0x62;
-  CAN0.sendMsgBuf(0x125, 0, 8, data);
+  CAN0.sendMsgBuf(CANTP_ADDR2, 0, 8, data);
   delay(CAN_TP_DELAY);
   //    43.413 125 8, 20, 69, 65, 6C, 6F, 75, 20, 61
   data[0] = 0x20;
@@ -750,7 +893,7 @@ void send125(void) {
   data[5] = 0x75;
   data[6] = 0x20;
   data[7] = 0x61;
-  CAN0.sendMsgBuf(0x125, 0, 8, data);
+  CAN0.sendMsgBuf(CANTP_ADDR2, 0, 8, data);
   delay(CAN_TP_DELAY);
   //    43.424 125 8, 21, 6C, 65, 6A, 6F, 75, 00, 00
   data[0] = 0x21;
@@ -761,7 +904,7 @@ void send125(void) {
   data[5] = 0x75;
   data[6] = 0x00;
   data[7] = 0x00;
-  CAN0.sendMsgBuf(0x125, 0, 8, data);
+  CAN0.sendMsgBuf(CANTP_ADDR2, 0, 8, data);
   delay(CAN_TP_DELAY);
   //    43.436 125 8, 22, 00, 44, 75, 73, 61, 6E, 20
   data[0] = 0x22;
@@ -772,7 +915,7 @@ void send125(void) {
   data[5] = 0x61;
   data[6] = 0x6E;
   data[7] = 0x20;
-  CAN0.sendMsgBuf(0x125, 0, 8, data);
+  CAN0.sendMsgBuf(CANTP_ADDR2, 0, 8, data);
   delay(CAN_TP_DELAY);
   //    43.447 125 8, 23, 47, 72, 75, 6E, 00, 00, 00
   data[0] = 0x23;
@@ -783,7 +926,7 @@ void send125(void) {
   data[5] = 0x00;
   data[6] = 0x00;
   data[7] = 0x00;
-  CAN0.sendMsgBuf(0x125, 0, 8, data);
+  CAN0.sendMsgBuf(CANTP_ADDR2, 0, 8, data);
   delay(CAN_TP_DELAY);
   //    43.458 125 8, 24, 00, 00, 00, 00, 00, 00, 00
   data[0] = 0x24;
@@ -794,7 +937,7 @@ void send125(void) {
   data[5] = 0x00;
   data[6] = 0x00;
   data[7] = 0x00;
-  CAN0.sendMsgBuf(0x125, 0, 8, data);
+  CAN0.sendMsgBuf(CANTP_ADDR2, 0, 8, data);
   delay(CAN_TP_DELAY);
   //    43.468 125 8, 25, 4D, 61, 72, 69, 6E, 61, 00
   data[0] = 0x25;
@@ -805,7 +948,7 @@ void send125(void) {
   data[5] = 0x6E;
   data[6] = 0x61;
   data[7] = 0x00;
-  CAN0.sendMsgBuf(0x125, 0, 8, data);
+  CAN0.sendMsgBuf(CANTP_ADDR2, 0, 8, data);
   delay(CAN_TP_DELAY);
   //    43.481 125 8, 26, 00, 00, 00, 00, 00, 00, 00
   data[0] = 0x26;
@@ -816,7 +959,7 @@ void send125(void) {
   data[5] = 0x00;
   data[6] = 0x00;
   data[7] = 0x00;
-  CAN0.sendMsgBuf(0x125, 0, 8, data);
+  CAN0.sendMsgBuf(CANTP_ADDR2, 0, 8, data);
   delay(CAN_TP_DELAY);
   //    43.491 125 7, 27, 00, 00, 00, 00, 00, 00
   data[0] = 0x27;
@@ -826,6 +969,6 @@ void send125(void) {
   data[4] = 0x00;
   data[5] = 0x00;
   data[6] = 0x00;
-  CAN0.sendMsgBuf(0x125, 0, 7, data);
+  CAN0.sendMsgBuf(CANTP_ADDR2, 0, 7, data);
   delay(CAN_TP_DELAY);
 }
